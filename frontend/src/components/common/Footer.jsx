@@ -9,10 +9,10 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center">
               <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800">
-                <span className="text-white font-bold text-xl">HM</span>
+                <span className="text-white font-bold text-xl">MG</span>
               </div>
               <span className="ml-3 text-xl font-bold text-gray-900">
-                HealingMinds
+                MentalGuard
               </span>
             </div>
             <p className="text-gray-500 text-sm leading-relaxed">
