@@ -1,141 +1,120 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import api from "../../services/api";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-} from "lucide-react";
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { useAuth } from "../../context/AuthContext"
+import api from "../../services/api"
+import { ArrowLeft, ArrowRight, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 
 export default function SelfAssessment() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState({});
-  const [assessment, setAssessment] = useState(null);
-  const [result, setResult] = useState(null);
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const [currentStep, setCurrentStep] = useState(0)
+  const [questions, setQuestions] = useState([])
+  const [answers, setAnswers] = useState({})
+  const [assessment, setAssessment] = useState(null)
+  const [result, setResult] = useState(null)
 
   useEffect(() => {
-    startAssessment();
-  }, []);
+    startAssessment()
+  }, [])
 
+  // Replace the entire startAssessment function with this improved version
   const startAssessment = async () => {
     try {
-      setLoading(true);
-      const response = await api.post("/assessments/start");
-      if (!response?.assessment?._id) {
-        throw new Error("Invalid assessment response");
-      }
-      setAssessment(response.assessment);
+      setLoading(true)
+      const response = await api.post("/assessments/start")
+      setAssessment(response.assessment)
 
-      // Get initial questions
-      const questionsResponse = await api.get(`/assessments/questions/${response.assessment._id}`);
-    if (!questionsResponse?.questions) {
-      throw new Error("Invalid questions response");
-    }
-    setQuestions(questionsResponse.questions);
-      setCurrentStep(0);
-      setAnswers({});
-      setError(null);
+      // Get initial questions (demographic questions)
+      const questionsResponse = await api.get(`/assessments/questions/${response.assessment._id}`)
+      setQuestions(questionsResponse.questions)
+      setCurrentStep(0)
+      setAnswers({})
+      setError(null)
     } catch (err) {
-      setError("Failed to start assessment. Please try again.");
-      console.error("Error starting assessment:", err);
+      setError("Failed to start assessment. Please try again.")
+      console.error("Error starting assessment:", err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleAnswer = (questionId, answer) => {
     setAnswers({
       ...answers,
       [questionId]: answer,
-    });
-  };
+    })
+  }
 
   const handlePrevious = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(currentStep - 1)
     }
-  };
+  }
 
+  // Replace the handleNext function with this improved version
   const handleNext = async () => {
-    if (!questions[currentStep]) {
-      setError("Questions are not loaded yet. Please wait.");
-      return;
-    }
-
-    const currentQuestion = questions[currentStep];
+    const currentQuestion = questions[currentStep]
 
     // Validate answer
     if (!answers[currentQuestion._id] && currentQuestion.required) {
-      setError("Please answer this question before continuing.");
-      return;
+      setError("Please answer this question before continuing.")
+      return
     }
 
-    setError(null);
+    setError(null)
 
-    // If this is the last question, submit the assessment
-    if (currentStep === questions.length - 1) {
-      await submitAssessment();
-      return;
-    }
-
-    // Otherwise, move to the next question
-    setCurrentStep(currentStep + 1);
-
-    // If we're at the last loaded question, fetch more questions
-    if (currentStep === questions.length - 2) {
-      try {
-        const response = await api.post(
-          `/assessments/respond/${assessment._id}`,
-          {
-            questionId: currentQuestion._id,
-            answer: answers[currentQuestion._id],
-          }
-        );
-
-        if (response.questions && response.questions.length > 0) {
-          setQuestions([...questions, ...response.questions]);
-        }
-      } catch (err) {
-        setError("Failed to load next questions. Please try again.");
-        console.error("Error loading next questions:", err);
-      }
-    }
-  };
-
-  const submitAssessment = async () => {
     try {
-      setSubmitting(true);
-
-      // Submit the final answer
-      const currentQuestion = questions[currentStep];
-      await api.post(`/assessments/respond/${assessment._id}`, {
+      // Submit the current answer
+      const response = await api.post(`/assessments/respond/${assessment._id}`, {
         questionId: currentQuestion._id,
         answer: answers[currentQuestion._id],
-      });
+      })
+
+      // If this is the last question, submit the assessment
+      if (currentStep === questions.length - 1 && (!response.questions || response.questions.length === 0)) {
+        await submitAssessment()
+        return
+      }
+
+      // If we received new questions, add them to our questions array
+      if (response.questions && response.questions.length > 0) {
+        // Only add questions that aren't already in our array
+        const existingQuestionIds = questions.map((q) => q._id)
+        const newQuestions = response.questions.filter((q) => !existingQuestionIds.includes(q._id))
+
+        if (newQuestions.length > 0) {
+          setQuestions([...questions, ...newQuestions])
+        }
+      }
+
+      // Move to the next question
+      setCurrentStep(currentStep + 1)
+    } catch (err) {
+      setError("Failed to process your answer. Please try again.")
+      console.error("Error processing answer:", err)
+    }
+  }
+
+  // Replace the submitAssessment function with this improved version
+  const submitAssessment = async () => {
+    try {
+      setSubmitting(true)
 
       // Complete the assessment
-      const resultResponse = await api.post(
-        `/assessments/complete/${assessment._id}`
-      );
-      setResult(resultResponse.result);
+      const resultResponse = await api.post(`/assessments/complete/${assessment._id}`)
+      setResult(resultResponse.result)
     } catch (err) {
-      setError("Failed to submit assessment. Please try again.");
-      console.error("Error submitting assessment:", err);
+      setError("Failed to submit assessment. Please try again.")
+      console.error("Error submitting assessment:", err)
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
   const renderQuestion = (question) => {
     switch (question.type) {
@@ -150,7 +129,7 @@ export default function SelfAssessment() {
               onChange={(e) => handleAnswer(question._id, e.target.value)}
             />
           </div>
-        );
+        )
 
       case "number":
         return (
@@ -163,7 +142,7 @@ export default function SelfAssessment() {
               onChange={(e) => handleAnswer(question._id, e.target.value)}
             />
           </div>
-        );
+        )
 
       case "select":
         return (
@@ -181,7 +160,7 @@ export default function SelfAssessment() {
               ))}
             </select>
           </div>
-        );
+        )
 
       case "radio":
         return (
@@ -203,13 +182,13 @@ export default function SelfAssessment() {
               </label>
             ))}
           </div>
-        );
+        )
 
       case "checkbox":
         return (
           <div className="mb-4 space-y-2">
             {question.options.map((option) => {
-              const selectedOptions = answers[question._id] || [];
+              const selectedOptions = answers[question._id] || []
               return (
                 <label
                   key={option.value}
@@ -222,57 +201,50 @@ export default function SelfAssessment() {
                     onChange={(e) => {
                       const newSelectedOptions = e.target.checked
                         ? [...selectedOptions, option.value]
-                        : selectedOptions.filter(
-                            (value) => value !== option.value
-                          );
-                      handleAnswer(question._id, newSelectedOptions);
+                        : selectedOptions.filter((value) => value !== option.value)
+                      handleAnswer(question._id, newSelectedOptions)
                     }}
                     className="h-4 w-4 text-blue-600"
                   />
                   <span>{option.label}</span>
                 </label>
-              );
+              )
             })}
           </div>
-        );
+        )
 
       case "scale":
         return (
           <div className="mb-4">
             <div className="flex justify-between mb-2">
-              <span className="text-sm text-gray-500">
-                {question.minLabel || "Low"}
-              </span>
-              <span className="text-sm text-gray-500">
-                {question.maxLabel || "High"}
-              </span>
+              <span className="text-sm text-gray-500">{question.minLabel || "Low"}</span>
+              <span className="text-sm text-gray-500">{question.maxLabel || "High"}</span>
             </div>
             <div className="flex justify-between space-x-2">
-              {Array.from(
-                { length: question.maxValue - question.minValue + 1 },
-                (_, i) => i + question.minValue
-              ).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`flex-1 py-2 border rounded-md ${
-                    answers[question._id] === value.toString()
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                  onClick={() => handleAnswer(question._id, value.toString())}
-                >
-                  {value}
-                </button>
-              ))}
+              {Array.from({ length: question.maxValue - question.minValue + 1 }, (_, i) => i + question.minValue).map(
+                (value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`flex-1 py-2 border rounded-md ${
+                      answers[question._id] === value.toString()
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                    onClick={() => handleAnswer(question._id, value.toString())}
+                  >
+                    {value}
+                  </button>
+                ),
+              )}
             </div>
           </div>
-        );
+        )
 
       default:
-        return <p>Unsupported question type</p>;
+        return <p>Unsupported question type</p>
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -284,7 +256,7 @@ export default function SelfAssessment() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   if (result) {
@@ -294,9 +266,7 @@ export default function SelfAssessment() {
           <div className="text-center mb-6">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Assessment Complete</h1>
-            <p className="text-gray-600">
-              Thank you for completing the assessment.
-            </p>
+            <p className="text-gray-600">Thank you for completing the assessment.</p>
           </div>
 
           <div className="mb-8">
@@ -310,11 +280,7 @@ export default function SelfAssessment() {
             <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
               <div
                 className={`h-4 rounded-full ${
-                  result.severityLevel < 3
-                    ? "bg-green-500"
-                    : result.severityLevel < 6
-                    ? "bg-yellow-500"
-                    : "bg-red-500"
+                  result.severityLevel < 3 ? "bg-green-500" : result.severityLevel < 6 ? "bg-yellow-500" : "bg-red-500"
                 }`}
                 style={{ width: `${(result.severityLevel / 10) * 100}%` }}
               ></div>
@@ -323,8 +289,8 @@ export default function SelfAssessment() {
               {result.severityLevel < 3
                 ? "Mild: Your symptoms suggest a mild condition."
                 : result.severityLevel < 6
-                ? "Moderate: Your symptoms suggest a moderate condition that may benefit from professional support."
-                : "Severe: Your symptoms suggest a more serious condition. We strongly recommend professional help."}
+                  ? "Moderate: Your symptoms suggest a moderate condition that may benefit from professional support."
+                  : "Severe: Your symptoms suggest a more serious condition. We strongly recommend professional help."}
             </p>
           </div>
 
@@ -357,7 +323,7 @@ export default function SelfAssessment() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -365,9 +331,7 @@ export default function SelfAssessment() {
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm p-8">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">
-              Mental Health Self-Assessment
-            </h1>
+            <h1 className="text-2xl font-bold">Mental Health Self-Assessment</h1>
             <span className="text-sm text-gray-500">
               Question {currentStep + 1} of {questions.length}
             </span>
@@ -376,9 +340,7 @@ export default function SelfAssessment() {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full"
-              style={{
-                width: `${((currentStep + 1) / questions.length) * 100}%`,
-              }}
+              style={{ width: `${((currentStep + 1) / questions.length) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -392,13 +354,9 @@ export default function SelfAssessment() {
 
         {questions.length > 0 && currentStep < questions.length && (
           <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4">
-              {questions[currentStep].text}
-            </h2>
+            <h2 className="text-xl font-bold mb-4">{questions[currentStep].text}</h2>
             {questions[currentStep].description && (
-              <p className="text-gray-600 mb-4">
-                {questions[currentStep].description}
-              </p>
+              <p className="text-gray-600 mb-4">{questions[currentStep].description}</p>
             )}
 
             {renderQuestion(questions[currentStep])}
@@ -444,5 +402,5 @@ export default function SelfAssessment() {
         </div>
       </div>
     </div>
-  );
+  )
 }

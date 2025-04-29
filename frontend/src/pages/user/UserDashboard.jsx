@@ -131,7 +131,7 @@ const UserDashboard = () => {
               <div className="mb-4 md:mb-0">
                 <div className="flex items-center mb-4">
                   <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 mr-3">
-                    <span className="text-white font-bold text-lg">HM</span>
+                    <span className="text-white font-bold text-lg">MG</span>
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900">
                     Welcome back, {user?.name}!

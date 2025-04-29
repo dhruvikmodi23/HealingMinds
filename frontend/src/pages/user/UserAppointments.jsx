@@ -29,6 +29,7 @@ const UserAppointments = () => {
   } = useAppointment();
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [counselorsLoading, setCounselorsLoading] = useState({});
 
   // Update current time every minute
   useEffect(() => {
@@ -180,6 +181,23 @@ const UserAppointments = () => {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
+  // Get counselor info with fallbacks
+  const getCounselorInfo = (appointment) => {
+    if (!appointment || !appointment.counselor) {
+      return {
+        name: "Unknown Counselor",
+        avatar: "/default-avatar.png",
+        loading: false
+      };
+    }
+    
+    return {
+      name: appointment.counselor.name || "Unknown Counselor",
+      avatar: appointment.counselor.avatar || "/default-avatar.png",
+      loading: counselorsLoading[appointment.counselor._id] || false
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -298,91 +316,108 @@ const UserAppointments = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAppointments.map((appointment) => (
-                      <tr key={appointment._id || Math.random().toString(36).substring(2, 9)}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <img
-                                className="h-10 w-10 rounded-full"
-                                src={appointment.counselor?.avatar || "/default-avatar.png"}
-                                alt={appointment.counselor?.name || "Counselor"}
-                                onError={(e) => {
-                                  e.target.src = "/default-avatar.png";
-                                }}
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {appointment.counselor?.name || "Unknown Counselor"}
+                    {filteredAppointments.map((appointment) => {
+                      const counselor = getCounselorInfo(appointment);
+                      return (
+                        <tr key={appointment._id || Math.random().toString(36).substring(2, 9)}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden border-2 border-gray-100">
+                                {counselor.loading ? (
+                                  <div className="h-full w-full bg-gray-200 animate-pulse" />
+                                ) : (
+                                  <img
+                                    className="h-full w-full object-cover"
+                                    src={appointment.counselor?.user?.avatar}
+                                    alt={appointment.counselor?.user?.name}
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.src = "/default-avatar.png";
+                                    }}
+                                  />
+                                )}
                               </div>
-                              <div className="text-sm text-gray-500">{appointment.topic || "No topic specified"}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{formatDate(appointment.dateTime)}</div>
-                          <div className="text-sm text-gray-500 flex items-center">
-                            <ClockIcon className="mr-1 h-4 w-4" />
-                            {formatTime(appointment.dateTime)}
-                          </div>
-                          {/* Show time remaining for today's upcoming appointments */}
-                          {isAppointmentToday(appointment.dateTime) &&
-                            appointment.status === "confirmed" &&
-                            new Date(appointment.dateTime) > currentTime && (
-                              <div className="text-xs mt-1 text-blue-600 font-medium">
-                                In {getTimeRemaining(appointment.dateTime)}
+                              <div className="ml-4">
+                                {counselor.loading ? (
+                                  <>
+                                    <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse" />
+                                    <div className="h-3 bg-gray-200 rounded w-16 animate-pulse" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {appointment.counselor?.user?.name}
+                                    </div>
+                                    <div className="text-sm text-gray-500">{appointment.topic || "No topic specified"}</div>
+                                  </>
+                                )}
                               </div>
-                            )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {appointment.type || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                              appointment.status
-                            )}`}
-                          >
-                            {capitalizeFirstLetter(appointment.status)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
-                            {/* Video call button - only show if appointment is today and within time window */}
-                            {shouldShowVideoButton(appointment) && (
-                              <Link
-                                to={`/user/video-chat/${appointment._id}`}
-                                className="text-purple-600 hover:text-purple-900"
-                                title="Join Session"
-                              >
-                                <VideoCameraIcon className="h-5 w-5" />
-                              </Link>
-                            )}
-
-                            {["pending", "confirmed"].includes(appointment.status?.toLowerCase()) && (
-                              <button
-                                onClick={() => handleCancel(appointment._id)}
-                                className="text-red-600 hover:text-red-900"
-                                title="Cancel"
-                              >
-                                <XCircleIcon className="h-5 w-5" />
-                              </button>
-                            )}
-
-                            <Link
-                              to={`/user/appointments/${appointment._id}`}
-                              className="text-gray-600 hover:text-gray-900"
-                              title="View Details"
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDate(appointment.dateTime)}</div>
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <ClockIcon className="mr-1 h-4 w-4" />
+                              {formatTime(appointment.dateTime)}
+                            </div>
+                            {/* Show time remaining for today's upcoming appointments */}
+                            {isAppointmentToday(appointment.dateTime) &&
+                              appointment.status === "confirmed" &&
+                              new Date(appointment.dateTime) > currentTime && (
+                                <div className="text-xs mt-1 text-blue-600 font-medium">
+                                  In {getTimeRemaining(appointment.dateTime)}
+                                </div>
+                              )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {appointment.type || "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                appointment.status
+                              )}`}
                             >
-                              <ClipboardDocumentIcon className="h-5 w-5" />
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {capitalizeFirstLetter(appointment.status)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
+                              {/* Video call button - only show if appointment is today and within time window */}
+                              {shouldShowVideoButton(appointment) && (
+                                <Link
+                                  to={`/user/video-chat/${appointment._id}`}
+                                  className="text-purple-600 hover:text-purple-900"
+                                  title="Join Session"
+                                >
+                                  <VideoCameraIcon className="h-5 w-5" />
+                                </Link>
+                              )}
+
+                              {["pending", "confirmed"].includes(appointment.status?.toLowerCase()) && (
+                                <button
+                                  onClick={() => handleCancel(appointment._id)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Cancel"
+                                >
+                                  <XCircleIcon className="h-5 w-5" />
+                                </button>
+                              )}
+
+                              <Link
+                                to={`/user/appointments/${appointment._id}`}
+                                className="text-gray-600 hover:text-gray-900"
+                                title="View Details"
+                              >
+                                <ClipboardDocumentIcon className="h-5 w-5" />
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
